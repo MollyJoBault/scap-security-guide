@@ -62,6 +62,8 @@ fi
 #
 declare -a files_to_inspect
 
+retval=0
+
 # First check sanity of the specified audit tool
 if [ "$tool" != 'auditctl' ] && [ "$tool" != 'augenrules' ]
 then
@@ -80,8 +82,9 @@ elif [ "$tool" == 'augenrules' ]
 then
 	# Extract audit $key from audit rule so we can use it later
 	key=$(expr "$full_rule" : '.*-k[[:space:]]\([^[:space:]]\+\)')
+	patternesc="$( echo -n ${pattern} | sed 's/[]^/*$.[]/\\&/g' )"
 	# Check if particular audit rule is already defined
-	IFS=$'\n' matches=($(sed -s -n -e "_${pattern}_!d" -e "/${arch}/!d" -e "/${group}/!d;F" /etc/audit/rules.d/*.rules))
+	IFS=$'\n' matches=($(sed -s -n -e "/${patternesc}/!d" -e "/${arch}/!d" -e "/${group}/!d;F" /etc/audit/rules.d/*.rules))
 	# Reset IFS back to default
 	unset IFS
 	for match in "${matches[@]}"
@@ -111,7 +114,9 @@ do
 	# * follow the rule pattern, and
 	# * meet the hardware architecture requirement, and
 	# * are current syscall group specific
-	IFS=$'\n' existing_rules=($(sed -e "_${pattern}_!d" -e "/${arch}/!d" -e "/${group}/!d"  "$audit_file"))
+	patternesc="$( echo -n ${pattern} | sed 's/[]^/*$.[]/\\&/g' )"
+	IFS=$'\n' existing_rules=($(sed -e "/${patternesc}/!d" -e "/${arch}/!d" -e "/${group}/!d"  "$audit_file"))
+	retval=$?
 	# Reset IFS back to default
 	unset IFS
 
@@ -130,7 +135,9 @@ do
 				# Rule is covered (i.e. the list of -S syscalls for this rule is
 				# subset of -S syscalls of $full_rule => existing rule can be deleted
 				# Thus delete the rule from audit.rules & our array
-				sed -i -e "_${rule}_d" "$audit_file"
+				ruleesc="$( echo -n ${rule} | sed 's/[]^/*$.[]/\\&/g' )"
+				sed -i -e "/${ruleesc}/d" "$audit_file"
+				retval=$?
 				existing_rules=("${existing_rules[@]//$rule/}")
 			else
 				# Rule isn't covered by $full_rule - it besides -S syscall arguments
@@ -147,7 +154,9 @@ do
 				# if the same rule not already present
 				#
 				# 1) Delete the original rule
-				sed -i -e "_${rule}_d" "$audit_file"
+				ruleesc="$( echo -n ${rule} | sed 's/[]^/*$.[]/\\&/g' )"
+				sed -i -e "/${ruleesc}/d" "$audit_file"
+				retval=$?
 				# 2) Delete syscalls for this group, but keep those from other groups
 				# Convert current rule syscall's string into array splitting by '-S' delimiter
 				IFS=$'-S' read -a rule_syscalls_as_array <<< "$rule_syscalls"
@@ -196,5 +205,7 @@ do
 		echo "$full_rule" >> "$audit_file"
 	fi
 done
+
+exit $retval
 
 }
