@@ -81,7 +81,7 @@ then
 	# Extract audit $key from audit rule so we can use it later
 	key=$(expr "$full_rule" : '.*-k[[:space:]]\([^[:space:]]\+\)')
 	# Check if particular audit rule is already defined
-	IFS=$'\n' matches=($(sed -s -n -e "/${pattern}/!d" -e "/${arch}/!d" -e "/${group}/!d;F" /etc/audit/rules.d/*.rules))
+	IFS=$'\n' matches=($(sed -s -n -e "_${pattern}_!d" -e "/${arch}/!d" -e "/${group}/!d;F" /etc/audit/rules.d/*.rules))
 	# Reset IFS back to default
 	unset IFS
 	for match in "${matches[@]}"
@@ -111,7 +111,7 @@ do
 	# * follow the rule pattern, and
 	# * meet the hardware architecture requirement, and
 	# * are current syscall group specific
-	IFS=$'\n' existing_rules=($(sed -e "/${pattern}/!d" -e "/${arch}/!d" -e "/${group}/!d"  "$audit_file"))
+	IFS=$'\n' existing_rules=($(sed -e "_${pattern}_!d" -e "/${arch}/!d" -e "/${group}/!d"  "$audit_file"))
 	# Reset IFS back to default
 	unset IFS
 
@@ -130,7 +130,7 @@ do
 				# Rule is covered (i.e. the list of -S syscalls for this rule is
 				# subset of -S syscalls of $full_rule => existing rule can be deleted
 				# Thus delete the rule from audit.rules & our array
-				sed -i -e "/${rule}/d" "$audit_file"
+				sed -i -e "_${rule}_d" "$audit_file"
 				existing_rules=("${existing_rules[@]//$rule/}")
 			else
 				# Rule isn't covered by $full_rule - it besides -S syscall arguments
@@ -147,7 +147,7 @@ do
 				# if the same rule not already present
 				#
 				# 1) Delete the original rule
-				sed -i -e "/${rule}/d" "$audit_file"
+				sed -i -e "_${rule}_d" "$audit_file"
 				# 2) Delete syscalls for this group, but keep those from other groups
 				# Convert current rule syscall's string into array splitting by '-S' delimiter
 				IFS=$'-S' read -a rule_syscalls_as_array <<< "$rule_syscalls"
